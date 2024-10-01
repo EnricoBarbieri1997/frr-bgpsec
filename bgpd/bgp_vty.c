@@ -5870,7 +5870,7 @@ DEFUN (neighbor_capability_bgpsec,
     int idx_peer = 1;
     int idx_cap = 4;
     int idx_afi = 5;
-    uint32_t flag = 0;
+    uint64_t flag = 0;
 
     //TODO: Error handling
     if (strcmp(argv[idx_cap]->arg, "send") == 0) {
@@ -5921,7 +5921,7 @@ DEFUN (no_neighbor_capability_bgpsec,
     int idx_peer = 2;
     int idx_cap = 5;
     int idx_afi = 6;
-    uint32_t flag = 0;
+    uint64_t flag = 0;
 
     //TODO: Error handling
     if (strcmp(argv[idx_cap]->arg, "send") == 0) {

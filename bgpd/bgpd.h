@@ -1556,17 +1556,17 @@ struct peer {
 #define PEER_FLAG_AS_LOOP_DETECTION (1ULL << 38) /* as path loop detection */
 #define PEER_FLAG_EXTENDED_LINK_BANDWIDTH (1ULL << 39)
 #define PEER_FLAG_DUAL_AS		  (1ULL << 40)
+/* BGPsec Peer related  flags */
+#define PEER_FLAG_BGPSEC_SEND_IPV4          (1ULL << 41) /* bgpsec send IPv4 */
+#define PEER_FLAG_BGPSEC_SEND_IPV6          (1ULL << 42) /* bgpsec send IPv6 */
+#define PEER_FLAG_BGPSEC_RECEIVE_IPV4       (1ULL << 43) /* bgpsec receive IPv4 */
+#define PEER_FLAG_BGPSEC_RECEIVE_IPV6       (1ULL << 44) /* bgpsec receive IPv6 */
 
 	/*
 	 *GR-Disabled mode means unset PEER_FLAG_GRACEFUL_RESTART
 	 *& PEER_FLAG_GRACEFUL_RESTART_HELPER
 	 *and PEER_FLAG_GRACEFUL_RESTART_GLOBAL_INHERIT
 	 */
-/* BGPsec Peer related  flags */
-#define PEER_FLAG_BGPSEC_SEND_IPV4          (1ULL << 41) /* bgpsec send IPv4 */
-#define PEER_FLAG_BGPSEC_SEND_IPV6          (1ULL << 42) /* bgpsec send IPv6 */
-#define PEER_FLAG_BGPSEC_RECEIVE_IPV4       (1ULL << 43) /* bgpsec receive IPv4 */
-#define PEER_FLAG_BGPSEC_RECEIVE_IPV6       (1ULL << 44) /* bgpsec receive IPv6 */
 
 	struct bgp_peer_gr PEER_GR_FSM[BGP_PEER_GR_MODE][BGP_PEER_GR_EVENT_CMD];
 	enum peer_mode peer_gr_present_state;
