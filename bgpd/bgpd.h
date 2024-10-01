@@ -1415,14 +1415,14 @@ struct peer {
 #define PEER_CAP_SOFT_VERSION_RCV	    (1ULL << 28)
 #define PEER_CAP_PATHS_LIMIT_ADV (1U << 29)
 #define PEER_CAP_PATHS_LIMIT_RCV (1U << 30)
-#define PEER_CAP_BGPSEC_SEND_IPV4_ADV       (1U << 31) /* bgpsec send IPv4 advertised */
-#define PEER_CAP_BGPSEC_SEND_IPV6_ADV       (1U << 32) /* bgpsec send IPv6 advertised */
-#define PEER_CAP_BGPSEC_SEND_IPV4_RCV       (1U << 33) /* bgpsec send IPv4 received */
-#define PEER_CAP_BGPSEC_SEND_IPV6_RCV       (1U << 34) /* bgpsec send IPv6 received */
-#define PEER_CAP_BGPSEC_RECEIVE_IPV4_ADV    (1U << 35) /* bgpsec receive IPv4 advertised */
-#define PEER_CAP_BGPSEC_RECEIVE_IPV6_ADV    (1U << 36) /* bgpsec receive IPv6 advertised */
-#define PEER_CAP_BGPSEC_RECEIVE_IPV4_RCV    (1U << 37) /* bgpsec receive IPv4 received */
-#define PEER_CAP_BGPSEC_RECEIVE_IPV6_RCV    (1U << 38) /* bgpsec receive IPv6 received */
+#define PEER_CAP_BGPSEC_SEND_IPV4_ADV       (1ULL << 31) /* bgpsec send IPv4 advertised */
+#define PEER_CAP_BGPSEC_SEND_IPV6_ADV       (1ULL << 32) /* bgpsec send IPv6 advertised */
+#define PEER_CAP_BGPSEC_SEND_IPV4_RCV       (1ULL << 33) /* bgpsec send IPv4 received */
+#define PEER_CAP_BGPSEC_SEND_IPV6_RCV       (1ULL << 34) /* bgpsec send IPv6 received */
+#define PEER_CAP_BGPSEC_RECEIVE_IPV4_ADV    (1ULL << 35) /* bgpsec receive IPv4 advertised */
+#define PEER_CAP_BGPSEC_RECEIVE_IPV6_ADV    (1ULL << 36) /* bgpsec receive IPv6 advertised */
+#define PEER_CAP_BGPSEC_RECEIVE_IPV4_RCV    (1ULL << 37) /* bgpsec receive IPv4 received */
+#define PEER_CAP_BGPSEC_RECEIVE_IPV6_RCV    (1ULL << 38) /* bgpsec receive IPv6 received */
 
 	/* Capability flags (reset in bgp_stop) */
 	uint32_t af_cap[AFI_MAX][SAFI_MAX];
