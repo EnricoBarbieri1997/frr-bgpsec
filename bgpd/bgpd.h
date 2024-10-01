@@ -1563,10 +1563,10 @@ struct peer {
 	 *and PEER_FLAG_GRACEFUL_RESTART_GLOBAL_INHERIT
 	 */
 /* BGPsec Peer related  flags */
-#define PEER_FLAG_BGPSEC_SEND_IPV4          (1U << 41) /* bgpsec send IPv4 */
-#define PEER_FLAG_BGPSEC_SEND_IPV6          (1U << 42) /* bgpsec send IPv6 */
-#define PEER_FLAG_BGPSEC_RECEIVE_IPV4       (1U << 43) /* bgpsec receive IPv4 */
-#define PEER_FLAG_BGPSEC_RECEIVE_IPV6       (1U << 44) /* bgpsec receive IPv6 */
+#define PEER_FLAG_BGPSEC_SEND_IPV4          (1ULL << 41) /* bgpsec send IPv4 */
+#define PEER_FLAG_BGPSEC_SEND_IPV6          (1ULL << 42) /* bgpsec send IPv6 */
+#define PEER_FLAG_BGPSEC_RECEIVE_IPV4       (1ULL << 43) /* bgpsec receive IPv4 */
+#define PEER_FLAG_BGPSEC_RECEIVE_IPV6       (1ULL << 44) /* bgpsec receive IPv6 */
 
 	struct bgp_peer_gr PEER_GR_FSM[BGP_PEER_GR_MODE][BGP_PEER_GR_EVENT_CMD];
 	enum peer_mode peer_gr_present_state;
