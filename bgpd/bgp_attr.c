@@ -4636,7 +4636,7 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer,
 				struct peer *from, struct prefix_rd *prd,
 				mpls_label_t *label, uint8_t num_labels,
 				bool addpath_capable, uint32_t addpath_tx_id,
-				struct bgp_path_info *bpi)
+				struct bgp_path_info *bpi, const struct prefix *bgpsec_p)
 {
 	size_t cp;
 	size_t aspath_sizep;
