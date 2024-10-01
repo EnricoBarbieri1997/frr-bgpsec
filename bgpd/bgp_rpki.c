@@ -1158,8 +1158,26 @@ static int val_bgpsec_aspath(struct attr *attr,
     struct rtr_bgpsec *data;
     struct bgpsec_aspath *aspath;
     uint8_t pfx_len_b; // prefix length in bytes
+	struct bgp *bgp = peer->bgp;
+	struct vrf *vrf;
+	struct rpki_vrf *rpki_vrf;
 
-    if (!rtr_is_running) {
+	if (!bgp)
+		return 0;
+
+	vrf = vrf_lookup_by_id(bgp->vrf_id);
+	if (!vrf)
+		return 0;
+
+	if (vrf->vrf_id == VRF_DEFAULT)
+		rpki_vrf = find_rpki_vrf(NULL);
+	else
+		rpki_vrf = find_rpki_vrf(vrf->name);
+	if (!rpki_vrf || !is_synchronized(rpki_vrf))
+		return 0;
+	
+
+    if (!rpki_vrf->rtr_is_running) {
         BGPSEC_DEBUG("RPKI is not running");
         return 1;
     }
@@ -1201,7 +1219,7 @@ static int val_bgpsec_aspath(struct attr *attr,
         return 1;
     }
 
-    result = rtr_mgr_bgpsec_validate_as_path(data, rtr_config);
+    result = rtr_mgr_bgpsec_validate_as_path(data, rpki_vrf->rtr_config);
 
     rtr_mgr_bgpsec_free(data);
 
