@@ -60,6 +60,7 @@ unsigned long conf_bgp_debug_graceful_restart;
 unsigned long conf_bgp_debug_evpn_mh;
 unsigned long conf_bgp_debug_bfd;
 unsigned long conf_bgp_debug_cond_adv;
+unsigned long conf_bgp_debug_bgpsec;
 
 unsigned long term_bgp_debug_as4;
 unsigned long term_bgp_debug_neighbor_events;
@@ -80,6 +81,7 @@ unsigned long term_bgp_debug_graceful_restart;
 unsigned long term_bgp_debug_evpn_mh;
 unsigned long term_bgp_debug_bfd;
 unsigned long term_bgp_debug_cond_adv;
+unsigned long term_bgp_debug_bgpsec;
 
 struct list *bgp_debug_neighbor_events_peers = NULL;
 struct list *bgp_debug_keepalive_peers = NULL;
@@ -2106,6 +2108,39 @@ DEFPY(debug_bgp_bfd, debug_bgp_bfd_cmd,
 	return CMD_SUCCESS;
 }
 
+DEFUN (debug_bgp_bgpsec,
+       debug_bgp_bgpsec_cmd,
+       "debug bgp bgpsec",
+       DEBUG_STR
+       BGP_STR
+       "Debugging for BGPsec\n")
+{
+	if (vty->node == CONFIG_NODE)
+		DEBUG_ON(bgpsec, BGPSEC);
+	else {
+		TERM_DEBUG_ON(bgpsec, BGPSEC);
+		vty_out(vty, "BGPsec debugging is on\n");
+	}
+	return CMD_SUCCESS;
+}
+
+DEFUN (no_debug_bgp_bgpsec,
+       no_debug_bgp_bgpsec_cmd,
+       "no debug bgp bgpsec",
+       NO_STR
+       DEBUG_STR
+       BGP_STR
+       "Debugging for BGPsec\n")
+{
+	if (vty->node == CONFIG_NODE)
+		DEBUG_OFF(bgpsec, BGPSEC);
+	else {
+		TERM_DEBUG_OFF(bgpsec, BGPSEC);
+		vty_out(vty, "BGPsec debugging is off\n");
+	}
+	return CMD_SUCCESS;
+}
+
 DEFPY (debug_bgp_cond_adv,
        debug_bgp_cond_adv_cmd,
        "[no$no] debug bgp conditional-advertisement",
@@ -2177,6 +2212,7 @@ DEFUN (no_debug_bgp,
 	TERM_DEBUG_OFF(evpn_mh, EVPN_MH_RT);
 	TERM_DEBUG_OFF(bfd, BFD_LIB);
 	TERM_DEBUG_OFF(cond_adv, COND_ADV);
+	TERM_DEBUG_OFF(bgpsec, BGPSEC);
 
 	vty_out(vty, "All possible debugging has been turned off\n");
 
@@ -2269,6 +2305,9 @@ DEFUN_NOSH (show_debugging_bgp,
 	if (BGP_DEBUG(cond_adv, COND_ADV))
 		vty_out(vty,
 			"  BGP conditional advertisement debugging is on\n");
+	
+	if (BGP_DEBUG(bgpsec, BGPSEC))
+		vty_out(vty, "  BGP bgpsec debugging is on\n");
 
 	cmd_show_lib_debugs(vty);
 
@@ -2407,6 +2446,11 @@ static int bgp_config_write_debug(struct vty *vty)
 		vty_out(vty, "debug bgp conditional-advertisement\n");
 		write++;
 	}
+	
+	if (CONF_BGP_DEBUG(bgpsec, BGPSEC)) {
+        vty_out(vty, "debug bgp bgpsec\n");
+        write++;
+    }
 
 	if (hook_call(bgp_hook_config_write_debug, vty, true))
 		write++;
@@ -2545,6 +2589,12 @@ void bgp_debug_init(void)
 	/* debug bgp conditional advertisement */
 	install_element(ENABLE_NODE, &debug_bgp_cond_adv_cmd);
 	install_element(CONFIG_NODE, &debug_bgp_cond_adv_cmd);
+
+	/* debug bgp bgpsec */
+	install_element(ENABLE_NODE, &debug_bgp_bgpsec_cmd);
+	install_element(CONFIG_NODE, &debug_bgp_bgpsec_cmd);
+	install_element(ENABLE_NODE, &no_debug_bgp_bgpsec_cmd);
+	install_element(CONFIG_NODE, &no_debug_bgp_bgpsec_cmd);
 }
 
 /* Return true if this prefix is on the per_prefix_list of prefixes to debug

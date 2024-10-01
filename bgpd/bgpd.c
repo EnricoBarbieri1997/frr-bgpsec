@@ -85,6 +85,7 @@ DEFINE_QOBJ_TYPE(bgp_master);
 DEFINE_QOBJ_TYPE(bgp);
 DEFINE_QOBJ_TYPE(peer);
 DEFINE_HOOK(bgp_inst_delete, (struct bgp *bgp), (bgp));
+DEFINE_HOOK(bgp_bgpsec_cleanup, (struct bgp *bgp), (bgp));
 
 /* BGP process wide configuration.  */
 static struct bgp_master bgp_master;
@@ -4282,6 +4283,7 @@ void bgp_free(struct bgp *bgp)
 
 	bgp_evpn_cleanup(bgp);
 	bgp_pbr_cleanup(bgp);
+    hook_call(bgp_bgpsec_cleanup, bgp);
 
 	for (afi = AFI_IP; afi < AFI_MAX; afi++) {
 		enum vpn_policy_direction dir;
@@ -4789,6 +4791,10 @@ static const struct peer_flag_action peer_flag_action_list[] = {
 	{PEER_FLAG_AS_LOOP_DETECTION, 0, peer_change_none},
 	{PEER_FLAG_EXTENDED_LINK_BANDWIDTH, 0, peer_change_none},
 	{PEER_FLAG_LONESOUL, 0, peer_change_reset_out},
+    {PEER_FLAG_BGPSEC_SEND_IPV4, 0, peer_change_reset},
+    {PEER_FLAG_BGPSEC_SEND_IPV6, 0, peer_change_reset},
+    {PEER_FLAG_BGPSEC_RECEIVE_IPV4, 0, peer_change_reset},
+    {PEER_FLAG_BGPSEC_RECEIVE_IPV6, 0, peer_change_reset},
 	{0, 0, 0}};
 
 static const struct peer_flag_action peer_af_flag_action_list[] = {
@@ -8890,6 +8896,43 @@ void bgp_gr_apply_running_config(void)
 
 		gr_router_detected = false;
 	}
+}
+
+/* If AFI is IPv4 and BGPsec can send IPv4
+ * or
+ * if AFI is IPv6 and BGPsec can send IPv6
+ * and SAFI is Unicast
+ * The appropriate receive values must be set for the peer.
+ */
+int bgp_use_bgpsec(struct peer *peer, afi_t afi, safi_t safi)
+{
+    int retval = 0;
+    if ((CHECK_FLAG(peer->flags, PEER_FLAG_BGPSEC_SEND_IPV4)
+    && (afi == AFI_IP))
+    ||
+    (CHECK_FLAG(peer->flags, PEER_FLAG_BGPSEC_SEND_IPV6)
+    && (afi == AFI_IP6))) {
+        retval = 1;
+    } else {
+        return 0;
+    }
+
+    if ((CHECK_FLAG(peer->cap, PEER_CAP_BGPSEC_RECEIVE_IPV4_RCV)
+    && (afi == AFI_IP))
+    ||
+    (CHECK_FLAG(peer->cap, PEER_CAP_BGPSEC_RECEIVE_IPV6_RCV)
+    && (afi == AFI_IP6))) {
+        retval = 1;
+    } else {
+        return 0;
+    }
+
+    if (safi == SAFI_UNICAST)
+        retval = 1;
+    else
+        return 0;
+
+    return retval;
 }
 
 printfrr_ext_autoreg_p("BP", printfrr_bp);

@@ -37,6 +37,11 @@ PREDECL_LIST(zebra_announce);
 
 #include "lib/bfd.h"
 
+/* For RPKI */
+#include "rtrlib/rtrlib.h"
+#include "rtrlib/rtr_mgr.h"
+#include "rtrlib/bgpsec/bgpsec.h"
+
 DECLARE_HOOK(bgp_hook_config_write_vrf, (struct vty *vty, struct vrf *vrf),
 	     (vty, vrf));
 
@@ -273,6 +278,37 @@ struct vpn_policy {
 	struct srv6_locator *tovpn_sid_locator;
 	uint32_t tovpn_sid_transpose_label;
 	struct in6_addr *tovpn_zebra_vrf_sid_last_sent;
+};
+
+#define SKI_STR_SIZE 41
+
+/*
+ * A key struct that holds the private key for BGPsec signature.
+ */
+struct private_key {
+    /* The location of the private key on the file system. */
+    char *filepath;
+
+    /* The length of the filepath string */
+    uint16_t filepath_len;
+
+    /* The byte representation of the private key. */
+    uint8_t *key_buffer;
+
+    /* The length of the private key. */
+    uint16_t key_len;
+
+	/* Subject Key Identifier of the private BGPsec key */
+	uint8_t ski[SKI_SIZE];
+
+	/* Subject Key Identifier in human readable form */
+	unsigned char ski_str[SKI_STR_SIZE];
+
+    /* A bool that tells if the key was successfully loaded. */
+    bool loaded;
+
+    /* A bool that tells if the key is used for signing. */
+    bool active;
 };
 
 /*
@@ -862,6 +898,9 @@ struct bgp {
 	struct bgp_damp_config damp[AFI_MAX][SAFI_MAX];
 
 	QOBJ_FIELDS;
+
+	/* Private BGPsec key */
+	struct private_key *priv_key;
 };
 DECLARE_QOBJ_TYPE(bgp);
 
@@ -1376,6 +1415,14 @@ struct peer {
 #define PEER_CAP_SOFT_VERSION_RCV	    (1ULL << 28)
 #define PEER_CAP_PATHS_LIMIT_ADV (1U << 29)
 #define PEER_CAP_PATHS_LIMIT_RCV (1U << 30)
+#define PEER_CAP_BGPSEC_SEND_IPV4_ADV       (1U << 31) /* bgpsec send IPv4 advertised */
+#define PEER_CAP_BGPSEC_SEND_IPV6_ADV       (1U << 32) /* bgpsec send IPv6 advertised */
+#define PEER_CAP_BGPSEC_SEND_IPV4_RCV       (1U << 33) /* bgpsec send IPv4 received */
+#define PEER_CAP_BGPSEC_SEND_IPV6_RCV       (1U << 34) /* bgpsec send IPv6 received */
+#define PEER_CAP_BGPSEC_RECEIVE_IPV4_ADV    (1U << 35) /* bgpsec receive IPv4 advertised */
+#define PEER_CAP_BGPSEC_RECEIVE_IPV6_ADV    (1U << 36) /* bgpsec receive IPv6 advertised */
+#define PEER_CAP_BGPSEC_RECEIVE_IPV4_RCV    (1U << 37) /* bgpsec receive IPv4 received */
+#define PEER_CAP_BGPSEC_RECEIVE_IPV6_RCV    (1U << 38) /* bgpsec receive IPv6 received */
 
 	/* Capability flags (reset in bgp_stop) */
 	uint32_t af_cap[AFI_MAX][SAFI_MAX];
@@ -1515,6 +1562,11 @@ struct peer {
 	 *& PEER_FLAG_GRACEFUL_RESTART_HELPER
 	 *and PEER_FLAG_GRACEFUL_RESTART_GLOBAL_INHERIT
 	 */
+/* BGPsec Peer related  flags */
+#define PEER_FLAG_BGPSEC_SEND_IPV4          (1U << 41) /* bgpsec send IPv4 */
+#define PEER_FLAG_BGPSEC_SEND_IPV6          (1U << 42) /* bgpsec send IPv6 */
+#define PEER_FLAG_BGPSEC_RECEIVE_IPV4       (1U << 43) /* bgpsec receive IPv4 */
+#define PEER_FLAG_BGPSEC_RECEIVE_IPV6       (1U << 44) /* bgpsec receive IPv6 */
 
 	struct bgp_peer_gr PEER_GR_FSM[BGP_PEER_GR_MODE][BGP_PEER_GR_EVENT_CMD];
 	enum peer_mode peer_gr_present_state;
@@ -2002,6 +2054,7 @@ struct bgp_nlri {
 #define BGP_ATTR_IPV6_EXT_COMMUNITIES           25
 #define BGP_ATTR_AIGP                           26
 #define BGP_ATTR_LARGE_COMMUNITIES              32
+#define BGP_ATTR_BGPSEC_PATH                    33
 #define BGP_ATTR_OTC                            35
 #define BGP_ATTR_PREFIX_SID                     40
 #ifdef ENABLE_BGP_VNC_ATTR
@@ -2555,6 +2608,8 @@ int bgp_peer_gr_init(struct peer *peer);
 		}                                                              \
 	} while (0)
 
+extern int bgp_use_bgpsec(struct peer *peer, afi_t afi, safi_t safi);
+
 static inline struct bgp *bgp_lock(struct bgp *bgp)
 {
 	bgp->lock++;
@@ -2843,6 +2898,8 @@ DECLARE_HOOK(bgp_rpki_prefix_status,
 	     (struct peer * peer, struct attr *attr,
 	      const struct prefix *prefix),
 	     (peer, attr, prefix));
+
+DECLARE_HOOK(bgp_bgpsec_cleanup, (struct bgp *bgp), (bgp));
 
 void peer_nsf_stop(struct peer *peer);
 

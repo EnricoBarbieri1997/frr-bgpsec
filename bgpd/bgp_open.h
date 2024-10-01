@@ -25,6 +25,12 @@ struct graceful_restart_af {
 	uint8_t flag;
 };
 
+/* Structure for BGPsec capability negotiation. */
+struct bgpsec_cap {
+	uint8_t version_dir; /* Version and Direction bits. */
+	uint16_t afi; /* AFI. */
+};
+
 /*
  * +--------------------------------------------------+
  * | Address Family Identifier (16 bits)              |
@@ -51,6 +57,7 @@ struct graceful_restart_af {
 #define CAPABILITY_CODE_FQDN           73 /* Advertise hostname capability */
 #define CAPABILITY_CODE_SOFT_VERSION   75 /* Software Version capability */
 #define CAPABILITY_CODE_ENHE            5 /* Extended Next Hop Encoding */
+#define CAPABILITY_CODE_BGPSEC          7 /* BGPsec Capability */
 #define CAPABILITY_CODE_EXT_MESSAGE     6 /* Extended Message Support */
 #define CAPABILITY_CODE_ROLE            9 /* Role Capability */
 #define CAPABILITY_CODE_PATHS_LIMIT    76 /* Paths Limit Capability */
@@ -71,6 +78,7 @@ struct graceful_restart_af {
 #define CAPABILITY_CODE_EXT_MESSAGE_LEN 0 /* Extended Message Support */
 #define CAPABILITY_CODE_ROLE_LEN        1
 #define CAPABILITY_CODE_SOFT_VERSION_LEN 1
+#define CAPABILITY_CODE_BGPSEC_LEN      3
 
 /* Cooperative Route Filtering Capability.  */
 
@@ -95,6 +103,18 @@ struct graceful_restart_af {
 /* Long-lived Graceful Restart */
 #define LLGR_F_BIT 0x80
 
+/* BGPsec Version */
+#define BGPSEC_VERSION                  0
+
+/* BGPsec Capability Directions */
+#define BGPSEC_DIR_RECEIVE              0
+#define BGPSEC_DIR_SEND                 1
+#define BGPSEC_DIR_SEND_NOT_RECEIVE     1
+
+/* BGPsec Capability AFI */
+#define BGPSEC_AFI_IPV4                 1
+#define BGPSEC_AFI_IPV6                 2
+
 /* Optional Parameters */
 #define BGP_OPEN_NON_EXT_OPT_LEN 255		      /* Non-Ext OP Len. */
 #define BGP_OPEN_NON_EXT_OPT_TYPE_EXTENDED_LENGTH 255 /* Non-Ext OP Type */
@@ -114,5 +134,9 @@ extern const struct message orf_type_str[];
 extern const struct message orf_mode_str[];
 extern const size_t cap_minsizes[];
 extern const size_t cap_modsizes[];
+
+#include "hook.h"
+DECLARE_HOOK(bgp_put_bgpsec_cap, (struct stream *s, struct peer *peer), (s, peer));
+DECLARE_HOOK(bgp_capability_bgpsec, (struct peer *peer, struct capability_header *hdr), (peer, hdr));
 
 #endif /* _QUAGGA_BGP_OPEN_H */

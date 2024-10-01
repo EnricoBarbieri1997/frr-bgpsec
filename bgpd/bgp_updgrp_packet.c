@@ -640,7 +640,7 @@ bool subgroup_packets_to_build(struct update_subgroup *subgrp)
 struct bpacket *subgroup_update_packet(struct update_subgroup *subgrp)
 {
 	struct bpacket_attr_vec_arr vecarr;
-	struct bpacket *pkt;
+	struct bpacket *pkt = NULL;
 	struct peer *peer;
 	struct stream *s;
 	struct stream *snlri;
@@ -666,6 +666,7 @@ struct bpacket *subgroup_update_packet(struct update_subgroup *subgrp)
 	struct prefix_rd *prd = NULL;
 	mpls_label_t label = MPLS_INVALID_LABEL, *label_pnt = NULL;
 	uint8_t num_labels = 0;
+    unsigned int is_bgpsec = 0;
 
 	if (!subgrp)
 		return NULL;
@@ -685,6 +686,8 @@ struct bpacket *subgroup_update_packet(struct update_subgroup *subgrp)
 
 	addpath_capable = bgp_addpath_encode_tx(peer, afi, safi);
 	addpath_overhead = addpath_capable ? BGP_ADDPATH_ID_LEN : 0;
+
+	is_bgpsec = is_bgpsec_peer(peer);
 
 	adv = bgp_adv_fifo_first(&subgrp->sync->update);
 	while (adv) {
@@ -740,7 +743,7 @@ struct bpacket *subgroup_update_packet(struct update_subgroup *subgrp)
 			 * attr. */
 			total_attr_len = bgp_packet_attribute(
 				NULL, peer, s, adv->baa->attr, &vecarr, NULL,
-				afi, safi, from, NULL, NULL, 0, 0, 0, path);
+				afi, safi, from, NULL, NULL, 0, 0, 0, path, dest_p);
 
 			space_remaining =
 				STREAM_CONCAT_REMAIN(s, snlri, STREAM_SIZE(s))
@@ -775,7 +778,8 @@ struct bpacket *subgroup_update_packet(struct update_subgroup *subgrp)
 		}
 
 		if ((afi == AFI_IP && safi == SAFI_UNICAST)
-		    && !peer_cap_enhe(peer, afi, safi))
+		    && !peer_cap_enhe(peer, afi, safi)
+			&& !bgp_use_bgpsec(peer, afi, safi))
 			stream_put_prefix_addpath(s, dest_p, addpath_capable,
 						  addpath_tx_id);
 		else {
@@ -876,38 +880,79 @@ struct bpacket *subgroup_update_packet(struct update_subgroup *subgrp)
 			subgrp->scount++;
 
 		adj->attr = bgp_attr_intern(adv->baa->attr);
+
+		if (is_bgpsec) {
+            // TODO: reset s if BGPsec is active to make sure that
+            // another packet will be build.
+            if (!stream_empty(s)) {
+                if (!stream_empty(snlri)) {
+                    bgp_packet_mpattr_end(snlri, mpattrlen_pos);
+                    total_attr_len += stream_get_endp(snlri);
+                }
+
+                /* set the total attribute length correctly */
+                stream_putw_at(s, attrlen_pos, total_attr_len);
+
+                if (!stream_empty(snlri)) {
+                    packet = stream_dupcat(s, snlri, mpattr_pos);
+                    bpacket_attr_vec_arr_update(&vecarr, mpattr_pos);
+                } else
+                    packet = stream_dup(s);
+                bgp_packet_set_size(packet);
+                if (bgp_debug_update(NULL, NULL, subgrp->update_group, 0))
+                    zlog_debug("u%" PRIu64 ":s%" PRIu64" send UPDATE len %zd numpfx %d",
+                           subgrp->update_group->id, subgrp->id,
+                           (stream_get_endp(packet)
+                            - stream_get_getp(packet)),
+                           num_pfx);
+                pkt = bpacket_queue_add(SUBGRP_PKTQ(subgrp), packet, &vecarr);
+                stream_reset(s);
+                stream_reset(snlri);
+            }
+        }
+
 		adv = bgp_advertise_clean_subgroup(subgrp, adj);
 	}
 
-	if (!stream_empty(s)) {
-		if (!stream_empty(snlri)) {
-			bgp_packet_mpattr_end(snlri, mpattrlen_pos);
-			total_attr_len += stream_get_endp(snlri);
+	if (!is_bgpsec) {
+		if (!stream_empty(s)) {
+			if (!stream_empty(snlri)) {
+				bgp_packet_mpattr_end(snlri, mpattrlen_pos);
+				total_attr_len += stream_get_endp(snlri);
+			}
+
+			/* set the total attribute length correctly */
+			stream_putw_at(s, attrlen_pos, total_attr_len);
+
+			if (!stream_empty(snlri)) {
+				packet = stream_dupcat(s, snlri, mpattr_pos);
+				bpacket_attr_vec_arr_update(&vecarr, mpattr_pos);
+			} else
+				packet = stream_dup(s);
+			bgp_packet_set_size(packet);
+			if (bgp_debug_update(NULL, NULL, subgrp->update_group, 0))
+                    zlog_debug("u%" PRIu64 ":s%" PRIu64" send UPDATE len %zd numpfx %d",
+                           subgrp->update_group->id, subgrp->id,
+                           (stream_get_endp(packet)
+                            - stream_get_getp(packet)),
+                           num_pfx);
+			pkt = bpacket_queue_add(SUBGRP_PKTQ(subgrp), packet, &vecarr);
+			stream_reset(s);
+			stream_reset(snlri);
+			return pkt;
 		}
-
-		/* set the total attribute length correctly */
-		stream_putw_at(s, attrlen_pos, total_attr_len);
-
-		if (!stream_empty(snlri)) {
-			packet = stream_dupcat(s, snlri, mpattr_pos);
-			bpacket_attr_vec_arr_update(&vecarr, mpattr_pos);
-		} else
-			packet = stream_dup(s);
-		bgp_packet_set_size(packet);
-		if (bgp_debug_update(NULL, NULL, subgrp->update_group, 0))
-			zlog_debug(
-				"u%" PRIu64 ":s%" PRIu64
-				" send UPDATE len %zd (max message len: %hu) numpfx %d",
-				subgrp->update_group->id, subgrp->id,
-				(stream_get_endp(packet)
-				 - stream_get_getp(packet)),
-				peer->max_packet_size, num_pfx);
-		pkt = bpacket_queue_add(SUBGRP_PKTQ(subgrp), packet, &vecarr);
-		stream_reset(s);
-		stream_reset(snlri);
-		return pkt;
 	}
+
 	return NULL;
+}
+
+unsigned int is_bgpsec_peer(struct peer *peer)
+{
+	if (CHECK_FLAG(peer->cap, PEER_CAP_BGPSEC_RECEIVE_IPV4_RCV)
+	    || CHECK_FLAG(peer->cap, PEER_CAP_BGPSEC_RECEIVE_IPV6_RCV)) {
+        return 1;
+    }
+    return 0;
 }
 
 /* Make BGP withdraw packet.  */
@@ -1154,7 +1199,8 @@ void subgroup_default_update_packet(struct update_subgroup *subgrp,
 				     safi, from, NULL, &label, num_labels,
 				     addpath_capable,
 				     BGP_ADDPATH_TX_ID_FOR_DEFAULT_ORIGINATE,
-				     NULL);
+				     NULL,
+					 NULL);
 
 	/* Set Total Path Attribute Length. */
 	stream_putw_at(s, pos, total_attr_len);

@@ -27,6 +27,9 @@
 #include "bgpd/bgp_vty.h"
 #include "bgpd/bgp_memory.h"
 
+DEFINE_HOOK(bgp_put_bgpsec_cap, (struct stream *s, struct peer *peer), (s, peer));
+DEFINE_HOOK(bgp_capability_bgpsec, (struct peer *peer, struct capability_header *hdr), (peer, hdr));
+
 const struct message capcode_str[] = {
 	{ CAPABILITY_CODE_MP, "MultiProtocol Extensions" },
 	{ CAPABILITY_CODE_REFRESH, "Route Refresh" },
@@ -36,6 +39,7 @@ const struct message capcode_str[] = {
 	{ CAPABILITY_CODE_ADDPATH, "AddPath" },
 	{ CAPABILITY_CODE_DYNAMIC, "Dynamic" },
 	{ CAPABILITY_CODE_ENHE, "Extended Next Hop Encoding" },
+	{ CAPABILITY_CODE_BGPSEC, "BGPsec" },
 	{ CAPABILITY_CODE_FQDN, "FQDN" },
 	{ CAPABILITY_CODE_ENHANCED_RR, "Enhanced Route Refresh" },
 	{ CAPABILITY_CODE_EXT_MESSAGE, "BGP Extended Message" },
@@ -56,6 +60,7 @@ const size_t cap_minsizes[] = {
 	[CAPABILITY_CODE_ADDPATH] = CAPABILITY_CODE_ADDPATH_LEN,
 	[CAPABILITY_CODE_DYNAMIC] = CAPABILITY_CODE_DYNAMIC_LEN,
 	[CAPABILITY_CODE_ENHE] = CAPABILITY_CODE_ENHE_LEN,
+	[CAPABILITY_CODE_BGPSEC] = CAPABILITY_CODE_BGPSEC_LEN,
 	[CAPABILITY_CODE_FQDN] = CAPABILITY_CODE_MIN_FQDN_LEN,
 	[CAPABILITY_CODE_ENHANCED_RR] = CAPABILITY_CODE_ENHANCED_LEN,
 	[CAPABILITY_CODE_EXT_MESSAGE] = CAPABILITY_CODE_EXT_MESSAGE_LEN,
@@ -79,6 +84,7 @@ const size_t cap_modsizes[] = {
 	[CAPABILITY_CODE_ADDPATH] = 4,
 	[CAPABILITY_CODE_DYNAMIC] = 1,
 	[CAPABILITY_CODE_ENHE] = 6,
+	[CAPABILITY_CODE_BGPSEC] = 3,
 	[CAPABILITY_CODE_FQDN] = 1,
 	[CAPABILITY_CODE_ENHANCED_RR] = 1,
 	[CAPABILITY_CODE_EXT_MESSAGE] = 1,
@@ -1067,6 +1073,7 @@ static int bgp_capability_parse(struct peer *peer, size_t length,
 		case CAPABILITY_CODE_ROLE:
 		case CAPABILITY_CODE_SOFT_VERSION:
 		case CAPABILITY_CODE_PATHS_LIMIT:
+		case CAPABILITY_CODE_BGPSEC:
 			/* Check length. */
 			if (caphdr.length < cap_minsizes[caphdr.code]) {
 				zlog_info(
@@ -1161,6 +1168,16 @@ static int bgp_capability_parse(struct peer *peer, size_t length,
 			break;
 		case CAPABILITY_CODE_FQDN:
 			ret = bgp_capability_hostname(peer, &caphdr);
+			break;
+		// BGPsecHook to parse capability.
+		case CAPABILITY_CODE_BGPSEC:
+			ret = hook_call(bgp_capability_bgpsec, peer, &caphdr);
+			if (ret) {
+				ret = 0;
+                flog_err(EC_BGP_CAPABILITY_INVALID_DATA,
+                         "%s: Ignoring BGPsec capability from peer %s",
+                         __func__, peer->host);
+            }
 			break;
 		case CAPABILITY_CODE_ROLE:
 			ret = bgp_capability_role(peer, &caphdr);
