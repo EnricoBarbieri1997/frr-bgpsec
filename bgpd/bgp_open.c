@@ -2027,6 +2027,9 @@ uint16_t bgp_open_capability(struct stream *s, struct peer *peer,
 				cmd_domainname_get());
 	}
 
+	// BGPsecHook to write capabilities.
+	hook_call(bgp_put_bgpsec_cap, s, peer);
+
 	bgp_peer_send_gr_capability(s, peer, ext_opt_params);
 	bgp_peer_send_llgr_capability(s, peer, ext_opt_params);
 
